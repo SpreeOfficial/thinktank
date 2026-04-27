@@ -50,8 +50,8 @@ socket.on("lobbyUpdate", (lobby) => {
 
     li.textContent =
       pid === playerId
-        ? `${player.nickname} (You)`
-        : player.nickname;
+        ? `${player.nickname} (You) (${pid})`
+        : `${player.nickname} (${pid})`;
 
     playersList.appendChild(li);
   });
