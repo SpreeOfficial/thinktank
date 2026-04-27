@@ -1,4 +1,2 @@
 const socket = io();
-
-// safety reset (undgår ghost listeners)
-socket.removeAllListeners();
+window.socket = socket;
