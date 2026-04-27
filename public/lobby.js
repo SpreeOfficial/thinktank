@@ -1,5 +1,3 @@
-const socket = io();
-
 const params = new URLSearchParams(window.location.search);
 const lobbyId = params.get("lobbyId");
 const nickname = localStorage.getItem("nickname");
@@ -41,9 +39,7 @@ socket.on("lobbyUpdate", (lobby) => {
 });
 
 function startGame() {
-  socket.emit("startGame", { lobbyId });
+  window.location = `/game.html?lobby=${lobbyId}`;
 }
 
-socket.on("gameStarted", () => {
-  window.location = `/game.html?lobby=${lobbyId}`;
-});
+console.log("Lobby ID:", lobbyId);
