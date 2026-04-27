@@ -1,0 +1,16 @@
+<h1>Card Game</h1>
+
+<button onclick="create()">Create Lobby</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+function create() {
+  socket.emit("createLobby");
+
+  socket.on("lobbyCreated", (id) => {
+    window.location = `/lobby.html?lobby=${id}`;
+  });
+}
+</script>
