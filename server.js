@@ -83,25 +83,6 @@ io.on("connection", (socket) => {
     io.to(lobbyId).emit("gameStarted", { lobbyId });
   });
 
-  // DISCONNECT CLEANUP
-  socket.on("disconnect", () => {
-    const pid = socket.data.playerId;
-
-    for (const lobbyId in lobbies) {
-      const lobby = lobbies[lobbyId];
-
-      if (lobby.players[pid]) {
-        delete lobby.players[pid];
-
-        // delete lobby if empty
-        if (Object.keys(lobby.players).length === 0) {
-          delete lobbies[lobbyId];
-        } else {
-          io.to(lobbyId).emit("lobbyUpdate", lobby);
-        }
-      }
-    }
-  });
 });
 
 server.listen(3000, () => console.log("Server running on 3000"));
