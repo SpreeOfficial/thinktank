@@ -45,12 +45,10 @@ socket.on("lobbyUpdate", (lobby) => {
 
   Object.entries(lobby.players).forEach(([pid, player]) => {
     const li = document.createElement("li");
-
-    li.textContent =
-      pid === playerId
-        ? `${player.nickname} (You) (${pid})`
-        : `${player.nickname} (${pid})`;
-
+    const shortId = pid.slice(0, 6);
+    
+    li.textContent = `${player.nickname} (${shortId})`;
+    
     playersList.appendChild(li);
   });
 });
