@@ -34,7 +34,6 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const lobbyId = params.get("lobby");
 
     document.getElementById("lobbyId").innerText = lobbyId;
 
@@ -54,6 +53,10 @@
 
     // enable start button when players are present
     const originalUpdatePlayers = window.updatePlayers;
+  </script>
+
+  <script>
+    window.lobbyId = new URLSearchParams(window.location.search).get("lobby");
   </script>
 
 </body>
