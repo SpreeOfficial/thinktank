@@ -37,13 +37,26 @@ socket.on("newRound", (data) => {
   });
 });
 
+socket.on("timerUpdate", (time) => {
+  document.getElementById("timer").innerText = "Time: " + time;
+});
+
 function submit(card) {
   socket.emit("submitAnswer", { lobbyId, answer: card });
 }
 
+socket.on("vote", ({ lobbyId, playerId }) => {
+  if (playerId === socket.id) return; // 🚫 no self vote
+
 socket.on("startVoting", (submissions) => {
   const voting = document.getElementById("voting");
   voting.innerHTML = "<h3>Vote!</h3>";
+
+  submissions.forEach(sub => {
+  const player = lobby.players.find(p => p.id === sub.playerId);
+
+  const btn = document.createElement("button");
+  btn.innerText = `${sub.answer} (${player.name})`;
 
   submissions.forEach(sub => {
     const btn = document.createElement("button");
@@ -63,6 +76,9 @@ socket.on("startVoting", (submissions) => {
 socket.on("roundWinner", (data) => {
   document.getElementById("scores").innerHTML =
     Object.entries(data.scores)
-      .map(([id, score]) => `<div>${id}: ${score}</div>`)
+      .map(([id, score]) => {
+        const player = data.players.find(p => p.id === id);
+        return `<div>${player.name}: ${score}</div>`;
+      })
       .join("");
 });
