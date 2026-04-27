@@ -18,38 +18,36 @@ function generateLobbyId() {
 io.on("connection", (socket) => {
   console.log("Connected:", socket.id);
 
-  socket.on("createLobby", (_, callback) => {
-  const lobbyId = generateLobbyId();
-
-  lobbies[lobbyId] = {
-    hostId: socket.id,
-    players: {}
-  };
-
-  socket.join(lobbyId);
-
-  callback({
-    lobbyId,
-    playerId: socket.id
+  socket.on("createLobby", ({ nickname }, callback) => {
+    const lobbyId = generateLobbyId();
+  
+    lobbies[lobbyId] = {
+      hostId: socket.id,
+      players: {
+        [socket.id]: { nickname }
+      }
+    };
+  
+    socket.join(lobbyId);
+  
+    callback({
+      lobbyId,
+      playerId: socket.id
+    });
+  
+    io.to(lobbyId).emit("lobbyUpdate", lobbies[lobbyId]);
   });
-
-  io.to(lobbyId).emit("lobbyUpdate", lobbies[lobbyId]);
-});
 
   socket.on("joinLobby", ({ lobbyId, nickname }, callback) => {
     const lobby = lobbies[lobbyId];
     if (!lobby) return callback({ error: "Lobby not found" });
-
-    if (lobby.players[socket.id]) {
-      return callback({ error: "Already joined this lobby" });
-    }
-
+  
     lobby.players[socket.id] = { nickname };
-
+  
     socket.join(lobbyId);
-
+  
     callback({ lobbyId, playerId: socket.id });
-
+  
     io.to(lobbyId).emit("lobbyUpdate", lobby);
   });
 
@@ -67,19 +65,21 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     for (const lobbyId in lobbies) {
       const lobby = lobbies[lobbyId];
-
-      if (lobby.players[socket.id]) {
-        delete lobby.players[socket.id];
-
-        if (Object.keys(lobby.players).length === 0) {
-          delete lobbies[lobbyId];
-        } else {
-          if (lobby.hostId === socket.id) {
-            lobby.hostId = Object.keys(lobby.players)[0];
-          }
-          io.to(lobbyId).emit("lobbyUpdate", lobby);
-        }
+  
+      if (!lobby.players[socket.id]) continue;
+  
+      delete lobby.players[socket.id];
+  
+      if (Object.keys(lobby.players).length === 0) {
+        delete lobbies[lobbyId];
+        continue;
       }
+  
+      if (lobby.hostId === socket.id) {
+        lobby.hostId = Object.keys(lobby.players)[0];
+      }
+  
+      io.to(lobbyId).emit("lobbyUpdate", lobby);
     }
   });
 });
