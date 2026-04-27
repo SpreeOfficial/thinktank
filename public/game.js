@@ -79,3 +79,17 @@ socket.on("roundWinner", (data) => {
       })
       .join("");
 });
+
+function showGameScreen() {
+  document.getElementById("lobby").style.display = "none";
+  document.getElementById("game").style.display = "block";
+}
+
+function showQuestion(q) {
+  document.getElementById("question").innerText = q.text;
+}
+
+function sendAnswer() {
+  const answer = document.getElementById("answer").value;
+  submitAnswer(answer);
+}
