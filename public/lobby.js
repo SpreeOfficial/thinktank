@@ -1,27 +1,35 @@
-let lobbyId = new URLSearchParams(window.location.search).get("lobby");
-window.lobbyId = lobbyId;
+const lobbyId = localStorage.getItem("lobbyId");
+const nickname = localStorage.getItem("nickname");
 
-// MAKE GLOBAL (vigtigt for onclick)
-window.start = function () {
-  socket.emit("startGame", lobbyId);
-};
+let hasJoined = localStorage.getItem("hasJoined");
 
-window.join = function () {
-  const name = document.getElementById("name").value;
-  if (!name) return;
+if (!hasJoined) {
+  socket.emit("joinLobby", { lobbyId, nickname }, (res) => {
+    if (res.error) return alert(res.error);
+    localStorage.setItem("hasJoined", "true");
+  });
+}
 
-  socket.emit("joinLobby", { lobbyId, name });
-};
+socket.on("lobbyUpdate", (lobby) => {
+  document.getElementById("lobbyId").innerText = lobbyId;
 
-// PLAYERS UPDATE (ONLY ONCE)
-socket.on("updatePlayers", (players) => {
   const list = document.getElementById("players");
-  if (!list) return;
+  list.innerHTML = "";
 
-  list.innerHTML = players.map(p => `<li>${p.name}</li>`).join("");
+  Object.values(lobby.players).forEach((p) => {
+    const li = document.createElement("li");
+    li.innerText = p.nickname;
+    list.appendChild(li);
+  });
+
+  const isHost = socket.id === lobby.hostId;
+  document.getElementById("startBtn").style.display = isHost ? "block" : "none";
 });
 
-// GAME START
+function startGame() {
+  socket.emit("startGame", { lobbyId });
+}
+
 socket.on("gameStarted", () => {
-  window.location = `/game.html?lobby=${lobbyId}`;
+  window.location.href = "/game.html";
 });
