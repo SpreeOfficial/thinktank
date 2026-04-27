@@ -1,7 +1,7 @@
 let currentPlayers = [];
 let hasSubmitted = false;
 
-const lobbyId = new URLSearchParams(window.location.search).get("lobby");
+let lobbyId = new URLSearchParams(window.location.search).get("lobby");
 window.lobbyId = lobbyId;
 
 // NEW ROUND
@@ -32,7 +32,7 @@ socket.on("timerUpdate", (time) => {
   if (el) el.innerText = "Time: " + time;
 });
 
-// SUBMIT ANSWER
+// SUBMIT
 function submit(card) {
   if (hasSubmitted) return;
 
@@ -52,7 +52,7 @@ socket.on("startVoting", (submissions) => {
     const player = currentPlayers.find(p => p.id === sub.playerId);
 
     const btn = document.createElement("button");
-    btn.innerText = `${sub.answer} (${player?.name})`;
+    btn.innerText = `${sub.answer} (${player?.name || "Unknown"})`;
 
     btn.onclick = () => {
       if (sub.playerId === socket.id) return;
@@ -69,13 +69,13 @@ socket.on("startVoting", (submissions) => {
   });
 });
 
-// SCOREBOARD
+// SCORE
 socket.on("roundWinner", (data) => {
   document.getElementById("scores").innerHTML =
     Object.entries(data.scores)
       .map(([id, score]) => {
         const p = data.players.find(x => x.id === id);
-        return `<div>${p?.name}: ${score}</div>`;
+        return `<div>${p?.name || "Unknown"}: ${score}</div>`;
       })
       .join("");
 });
