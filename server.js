@@ -18,22 +18,23 @@ function generateLobbyId() {
 io.on("connection", (socket) => {
   console.log("Connected:", socket.id);
 
-  socket.on("createLobby", ({ nickname }, callback) => {
-    const lobbyId = generateLobbyId();
+  socket.on("createLobby", (_, callback) => {
+  const lobbyId = generateLobbyId();
 
-    lobbies[lobbyId] = {
-      hostId: socket.id,
-      players: {}
-    };
+  lobbies[lobbyId] = {
+    hostId: socket.id,
+    players: {}
+  };
 
-    lobbies[lobbyId].players[socket.id] = { nickname };
+  socket.join(lobbyId);
 
-    socket.join(lobbyId);
-
-    callback({ lobbyId, playerId: socket.id });
-
-    io.to(lobbyId).emit("lobbyUpdate", lobbies[lobbyId]);
+  callback({
+    lobbyId,
+    playerId: socket.id
   });
+
+  io.to(lobbyId).emit("lobbyUpdate", lobbies[lobbyId]);
+});
 
   socket.on("joinLobby", ({ lobbyId, nickname }, callback) => {
     const lobby = lobbies[lobbyId];
