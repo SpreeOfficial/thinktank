@@ -1,31 +1,24 @@
 let lobbyId = new URLSearchParams(window.location.search).get("lobby");
 window.lobbyId = lobbyId;
 
-let currentPlayers = [];
+// MAKE GLOBAL (vigtigt for onclick)
+window.start = function () {
+  socket.emit("startGame", lobbyId);
+};
 
-// JOIN
-function join() {
+window.join = function () {
   const name = document.getElementById("name").value;
   if (!name) return;
 
   socket.emit("joinLobby", { lobbyId, name });
-}
-
-// START GAME
-function start() {
-  socket.emit("startGame", lobbyId);
-}
+};
 
 // PLAYERS UPDATE (ONLY ONCE)
 socket.on("updatePlayers", (players) => {
-  currentPlayers = players;
-
   const list = document.getElementById("players");
   if (!list) return;
 
-  list.innerHTML = players
-    .map(p => `<li>${p.name}</li>`)
-    .join("");
+  list.innerHTML = players.map(p => `<li>${p.name}</li>`).join("");
 });
 
 // GAME START
