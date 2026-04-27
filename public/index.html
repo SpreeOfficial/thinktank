@@ -1,31 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Card Game</title>
-</head>
-<body>
+<input id="nickname" placeholder="Nickname" />
+<button onclick="createLobby()">Create Lobby</button>
 
-  <h1>Card Game</h1>
+<input id="joinLobbyId" placeholder="Lobby ID" />
+<button onclick="joinLobby()">Join Lobby</button>
 
-  <button onclick="create()">Create Lobby</button>
-
-  <p id="status"></p>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-
-    // Listen ONCE (vigtigt)
-    socket.on("lobbyCreated", (id) => {
-      window.location = `/lobby.html?lobby=${id}`;
-    });
-
-    function create() {
-      document.getElementById("status").innerText = "Creating lobby...";
-      socket.emit("createLobby");
-    }
-  </script>
-
-</body>
-</html>
+<script src="/socket.io/socket.io.js"></script>
+<script src="socket.js"></script>
+<script src="index.js"></script>
