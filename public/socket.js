@@ -1,4 +1,5 @@
 const socket = io();
+window.socket = socket;
 
 // join lobby
 function joinLobby(name) {
