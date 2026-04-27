@@ -8,15 +8,18 @@ const playersList = document.getElementById("players");
 const lobbyIdText = document.getElementById("lobbyId");
 const startBtn = document.getElementById("startBtn");
 
-// SAFETY CHECK
+// IMPORTANT: set immediately (NOT inside socket event)
+if (lobbyIdText) {
+  lobbyIdText.innerText = lobbyId || "UNKNOWN";
+}
+
+// safety check
 if (!lobbyId) {
-  alert("No lobby ID found in URL");
-  throw new Error("Missing lobbyId");
+  alert("Missing lobbyId in URL");
+  throw new Error("No lobbyId");
 }
 
 socket.on("connect", () => {
-  console.log("Connected:", socket.id);
-
   socket.emit("joinLobby", { lobbyId, nickname }, (res) => {
     if (res?.error) {
       alert(res.error);
@@ -24,10 +27,7 @@ socket.on("connect", () => {
   });
 });
 
-// UPDATE LOBBY UI
 socket.on("lobbyUpdate", (lobby) => {
-  lobbyIdText.innerText = lobbyId;
-
   playersList.innerHTML = "";
 
   Object.values(lobby.players).forEach((p) => {
@@ -40,12 +40,10 @@ socket.on("lobbyUpdate", (lobby) => {
   startBtn.style.display = isHost ? "block" : "none";
 });
 
-// START GAME BUTTON
 function startGame() {
   socket.emit("startGame", { lobbyId });
 }
 
-// GAME START EVENT
 socket.on("gameStarted", () => {
   window.location = `/game.html?lobby=${lobbyId}`;
 });
