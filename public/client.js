@@ -11,9 +11,11 @@ function join() {
     document.getElementById("players").innerHTML =
       players.map(p => `<li>${p.name}</li>`).join("");
   });
-
-  window.location = `/game.html?lobby=${lobbyId}`;
 }
+
+socket.on("gameStarted", () => {
+  window.location = `/game.html?lobby=${lobbyId}`;
+});
 
 function start() {
   socket.emit("startGame", lobbyId);
