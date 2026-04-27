@@ -25,17 +25,15 @@ socket.on("init", (data) => {
 });
 
 // join lobby AFTER we have playerId
-let hasJoined = false;
-
 socket.on("connect", () => {
-  if (hasJoined) return; // 🔥 prevents double join
-  hasJoined = true;
-
   socket.emit("joinLobby", {
     lobbyId,
-    nickname
+    nickname,
+    playerId
   }, (res) => {
-    if (res?.error) alert(res.error);
+    if (res?.error) {
+      alert(res.error);
+    }
   });
 });
 
