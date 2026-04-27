@@ -42,25 +42,26 @@ io.on("connection", (socket) => {
   });
 
   // JOIN LOBBY (STRICT + NO DUPLICATES)
-  socket.on("joinLobby", ({ lobbyId, nickname }, callback) => {
+  socket.on("joinLobby", ({ lobbyId, nickname, playerId }, callback) => {
     const lobby = lobbies[lobbyId];
     if (!lobby) return callback({ error: "Lobby not found" });
-
-    // 🔥 prevent duplicate joins
+  
+    // 🔥 prevent duplicates
     if (lobby.players[playerId]) {
       return callback({ lobbyId, playerId });
     }
-
+  
     lobby.players[playerId] = {
-      nickname
+      nickname,
+      socketId: socket.id
     };
-
+  
     socket.join(lobbyId);
-
+  
     callback({ lobbyId, playerId });
-
+  
     io.to(lobbyId).emit("lobbyUpdate", lobby);
-  });
+});
 
   // START GAME
   socket.on("startGame", ({ lobbyId }) => {
