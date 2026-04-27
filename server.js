@@ -68,18 +68,18 @@ io.on("connection", (socket) => {
   socket.on("startGame", (lobbyId) => {
     const lobby = lobbies[lobbyId];
     if (!lobby) return;
-
+    io.to(lobbyId).emit("gameStarted");
     startRound(lobbyId);
   });
 
   socket.on("submitAnswer", ({ lobbyId, answer }) => {
     const lobby = lobbies[lobbyId];
-
+  
     lobby.submissions.push({
       playerId: socket.id,
       answer
     });
-
+  
     if (lobby.submissions.length === lobby.players.length) {
       io.to(lobbyId).emit("startVoting", lobby.submissions);
     }
@@ -105,7 +105,8 @@ io.on("connection", (socket) => {
 
       io.to(lobbyId).emit("roundWinner", {
         winner,
-        scores: lobby.scores
+        scores: lobby.scores,
+        players: lobby.players
       });
 
       setTimeout(() => startRound(lobbyId), 5000);
@@ -129,6 +130,22 @@ function startRound(lobbyId) {
     prompt: lobby.prompt,
     players: lobby.players
   });
+
+  io.to(lobbyId).emit("roundTimer", 120);
+
+  let timeLeft = 120;
+  
+  const timer = setInterval(() => {
+    timeLeft--;
+  
+    io.to(lobbyId).emit("timerUpdate", timeLeft);
+  
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+  
+      io.to(lobbyId).emit("startVoting", lobby.submissions);
+    }
+  }, 1000);
 }
 
 function shuffle(arr) {
