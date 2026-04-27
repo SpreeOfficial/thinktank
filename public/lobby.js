@@ -8,6 +8,8 @@ const startBtn = document.getElementById("startBtn");
 let playerId = null;
 let nickname = localStorage.getItem("nickname");
 
+let hasJoined = false;
+
 // show lobby id
 if (lobbyIdText) {
   lobbyIdText.innerText = lobbyId || "UNKNOWN";
@@ -18,23 +20,23 @@ if (!lobbyId) {
   throw new Error("No lobbyId");
 }
 
-// ✅ receive server-generated playerId
+// ✅ STEP 1: get playerId first
 socket.on("init", (data) => {
   playerId = data.playerId;
   console.log("My playerId:", playerId);
-});
 
-// join lobby AFTER we have playerId
-socket.on("connect", () => {
-  socket.emit("joinLobby", {
-    lobbyId,
-    nickname,
-    playerId
-  }, (res) => {
-    if (res?.error) {
-      alert(res.error);
-    }
-  });
+  // ✅ STEP 2: ONLY join AFTER we have playerId
+  if (!hasJoined) {
+    hasJoined = true;
+
+    socket.emit("joinLobby", {
+      lobbyId,
+      nickname,
+      playerId
+    }, (res) => {
+      if (res?.error) alert(res.error);
+    });
+  }
 });
 
 // render lobby
