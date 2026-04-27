@@ -68,30 +68,7 @@ io.on("connection", (socket) => {
 
     io.to(lobbyId).emit("gameStarted", { lobbyId });
   });
-
-  // DISCONNECT
-  socket.on("disconnect", () => {
-    for (const lobbyId in lobbies) {
-      const lobby = lobbies[lobbyId];
-
-      if (!lobby.players[socket.id]) continue;
-
-      delete lobby.players[socket.id];
-
-      // delete empty lobby
-      if (Object.keys(lobby.players).length === 0) {
-        delete lobbies[lobbyId];
-        continue;
-      }
-
-      // reassign host if needed
-      if (lobby.hostId === socket.id) {
-        lobby.hostId = Object.keys(lobby.players)[0];
-      }
-
-      io.to(lobbyId).emit("lobbyUpdate", lobby);
-    }
-  });
+  
 });
 
 server.listen(3000, () => console.log("Server running on 3000"));
