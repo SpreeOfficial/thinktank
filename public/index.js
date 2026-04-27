@@ -1,11 +1,16 @@
 function createLobby() {
   const nickname = document.getElementById("nickname").value;
-  const lobbyId = Math.random().toString(36).slice(2, 6).toUpperCase();
 
-  socket.emit("createLobby", { nickname }, ({ lobbyId }) => {
-    localStorage.setItem("lobbyId", lobbyId);
+  socket.emit("createLobby", { nickname }, (res) => {
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+
+    localStorage.setItem("lobbyId", res.lobbyId);
     localStorage.setItem("nickname", nickname);
-    window.location.href = "/lobby.html";
+
+    window.location.href = `/lobby.html?lobbyId=${res.lobbyId}`;
   });
 }
 
