@@ -9,10 +9,9 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-const PORT = process.env.PORT || 3000;
-
 let lobbies = {};
 
+// TEST DATA
 const prompts = [
   "I never leave the house without ___.",
   "My secret talent is ___.",
@@ -41,10 +40,8 @@ io.on("connection", (socket) => {
       players: [],
       submissions: [],
       votes: {},
-      voters: {},
       scores: {},
-      timer: null,
-      votingStarted: false
+      prompt: null
     };
 
     socket.emit("lobbyCreated", id);
@@ -54,12 +51,13 @@ io.on("connection", (socket) => {
     const lobby = lobbies[lobbyId];
     if (!lobby) return;
 
-    lobby.players.push({
+    const player = {
       id: socket.id,
       name,
       hand: []
-    });
+    };
 
+    lobby.players.push(player);
     lobby.scores[socket.id] = 0;
 
     socket.join(lobbyId);
@@ -71,51 +69,46 @@ io.on("connection", (socket) => {
     const lobby = lobbies[lobbyId];
     if (!lobby) return;
 
-    io.to(lobbyId).emit("gameStarted");
     startRound(lobbyId);
   });
 
   socket.on("submitAnswer", ({ lobbyId, answer }) => {
     const lobby = lobbies[lobbyId];
-    if (!lobby) return;
 
-    if (lobby.submissions.find(s => s.playerId === socket.id)) return;
-
-    lobby.submissions.push({ playerId: socket.id, answer });
+    lobby.submissions.push({
+      playerId: socket.id,
+      answer
+    });
 
     if (lobby.submissions.length === lobby.players.length) {
-      startVoting(lobbyId);
+      io.to(lobbyId).emit("startVoting", lobby.submissions);
     }
   });
 
   socket.on("vote", ({ lobbyId, playerId }) => {
     const lobby = lobbies[lobbyId];
-    if (!lobby) return;
 
-    if (playerId === socket.id) return;
-
-    if (lobby.voters[socket.id]) return;
-    lobby.voters[socket.id] = true;
-
-    lobby.votes[playerId] = (lobby.votes[playerId] || 0) + 1;
-
-    if (Object.keys(lobby.voters).length === lobby.players.length) {
-      finishVoting(lobbyId);
+    if (!lobby.votes[playerId]) {
+      lobby.votes[playerId] = 0;
     }
-  });
 
-  socket.on("disconnect", () => {
-    for (const id in lobbies) {
-      const lobby = lobbies[id];
+    lobby.votes[playerId]++;
 
-      lobby.players = lobby.players.filter(p => p.id !== socket.id);
-      delete lobby.scores[socket.id];
+    const totalVotes = Object.values(lobby.votes).reduce((a,b)=>a+b,0);
 
-      io.to(id).emit("updatePlayers", lobby.players);
+    if (totalVotes === lobby.players.length) {
+      let winner = Object.keys(lobby.votes).reduce((a, b) =>
+        lobby.votes[a] > lobby.votes[b] ? a : b
+      );
 
-      if (lobby.players.length === 0) {
-        delete lobbies[id];
-      }
+      lobby.scores[winner]++;
+
+      io.to(lobbyId).emit("roundWinner", {
+        winner,
+        scores: lobby.scores
+      });
+
+      setTimeout(() => startRound(lobbyId), 5000);
     }
   });
 
@@ -123,72 +116,25 @@ io.on("connection", (socket) => {
 
 function startRound(lobbyId) {
   const lobby = lobbies[lobbyId];
-  if (!lobby) return;
 
   lobby.submissions = [];
   lobby.votes = {};
-  lobby.voters = {};
-  lobby.votingStarted = false;
+  lobby.prompt = prompts[Math.floor(Math.random() * prompts.length)];
 
-  const prompt = prompts[Math.floor(Math.random() * prompts.length)];
-  lobby.prompt = prompt;
-
-  lobby.players.forEach(p => {
-    p.hand = shuffle([...answerCards]).slice(0, 7);
+  lobby.players.forEach(player => {
+    player.hand = shuffle(answerCards).slice(0, 7);
   });
 
   io.to(lobbyId).emit("newRound", {
-    prompt,
+    prompt: lobby.prompt,
     players: lobby.players
   });
-
-  let time = 120;
-
-  lobby.timer = setInterval(() => {
-    time--;
-
-    io.to(lobbyId).emit("timerUpdate", time);
-
-    if (time <= 0) {
-      clearInterval(lobby.timer);
-      startVoting(lobbyId);
-    }
-  }, 1000);
-}
-
-function startVoting(lobbyId) {
-  const lobby = lobbies[lobbyId];
-  if (!lobby || lobby.votingStarted) return;
-
-  lobby.votingStarted = true;
-  clearInterval(lobby.timer);
-
-  io.to(lobbyId).emit("startVoting", lobby.submissions);
-}
-
-function finishVoting(lobbyId) {
-  const lobby = lobbies[lobbyId];
-  if (!lobby) return;
-
-  const winner = Object.keys(lobby.votes).reduce((a, b) =>
-    lobby.votes[a] > lobby.votes[b] ? a : b
-  );
-
-  lobby.scores[winner]++;
-
-  io.to(lobbyId).emit("roundWinner", {
-    winner,
-    scores: lobby.scores,
-    players: lobby.players
-  });
-
-  setTimeout(() => startRound(lobbyId), 4000);
 }
 
 function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
 
-server.listen(PORT, () => {
-  console.log("Server running on", PORT);
+server.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
 });
