@@ -1,4 +1,5 @@
-const lobbyId = localStorage.getItem("lobbyId");
+const params = new URLSearchParams(window.location.search);
+const lobbyId = params.get("lobbyId") || localStorage.getItem("lobbyId");
 const nickname = localStorage.getItem("nickname");
 
 let hasJoined = localStorage.getItem("hasJoined");
