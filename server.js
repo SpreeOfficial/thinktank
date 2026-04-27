@@ -38,18 +38,24 @@ io.on("connection", (socket) => {
 
   socket.on("joinLobby", ({ lobbyId, nickname }, callback) => {
     const lobby = lobbies[lobbyId];
-    if (!lobby) return callback({ error: "Lobby not found" });
-
+  
+    if (!lobby) {
+      return callback({ error: "Lobby not found" });
+    }
+  
     if (lobby.players[socket.id]) {
       return callback({ error: "Already joined this lobby" });
     }
-
-    lobby.players[socket.id] = { nickname };
-
+  
+    // 👇 safe fallback nickname
+    const safeName = nickname?.trim() || `Player-${socket.id.slice(0, 4)}`;
+  
+    lobby.players[socket.id] = { nickname: safeName };
+  
     socket.join(lobbyId);
-
+  
     callback({ lobbyId, playerId: socket.id });
-
+  
     io.to(lobbyId).emit("lobbyUpdate", lobby);
   });
 
