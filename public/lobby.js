@@ -30,6 +30,7 @@ function startGame() {
   socket.emit("startGame", { lobbyId });
 }
 
+// GAME START
 socket.on("gameStarted", () => {
-  window.location.href = "/game.html";
+  window.location = `/game.html?lobby=${lobbyId}`;
 });
