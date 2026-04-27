@@ -1,6 +1,6 @@
 const socket = io();
 const params = new URLSearchParams(window.location.search);
-const lobbyId = params.get("lobby");
+const lobbyId = window.lobbyId;
 
 let currentPlayers = [];
 let hasSubmitted = false;
