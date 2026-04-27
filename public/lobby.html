@@ -1,11 +1,10 @@
-<h2>Join Lobby</h2>
-
-<input id="name" placeholder="Your name">
-<button onclick="join()">Join</button>
+<h1>Lobby: <span id="lobbyId"></span></h1>
 
 <ul id="players"></ul>
 
-<button onclick="start()">Start Game</button>
+<button id="startBtn" onclick="startGame()" style="display:none;">
+  Start Game
+</button>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="socket.js"></script>
