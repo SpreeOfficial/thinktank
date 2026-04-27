@@ -1,7 +1,7 @@
-let currentPlayers = [];
-
-const lobbyId = new URLSearchParams(window.location.search).get("lobby");
+let lobbyId = new URLSearchParams(window.location.search).get("lobby");
 window.lobbyId = lobbyId;
+
+let currentPlayers = [];
 
 // JOIN
 function join() {
@@ -16,7 +16,7 @@ function start() {
   socket.emit("startGame", lobbyId);
 }
 
-// UPDATE PLAYERS (IMPORTANT: ONLY IN LOBBY)
+// PLAYERS UPDATE (ONLY ONCE)
 socket.on("updatePlayers", (players) => {
   currentPlayers = players;
 
@@ -28,7 +28,7 @@ socket.on("updatePlayers", (players) => {
     .join("");
 });
 
-// REDIRECT TO GAME
+// GAME START
 socket.on("gameStarted", () => {
   window.location = `/game.html?lobby=${lobbyId}`;
 });
