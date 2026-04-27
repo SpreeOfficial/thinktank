@@ -18,7 +18,7 @@ if (!lobbyId) {
 }
 
 socket.on("connect", () => {
-  socket.emit("joinLobby", { lobbyId, nickname }, (res) => {
+  socket.emit("joinLobby", { lobbyId, nickname, playerId }, (res) => {
     if (res?.error) {
       alert(res.error);
     }
