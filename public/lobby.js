@@ -25,17 +25,20 @@ socket.on("connect", () => {
   });
 });
 
-socket.on("lobbyUpdate", (lobby) => {
-  playersList.innerHTML = "";
+socket.on("joinLobby", ({ lobbyId, nickname, playerId }, callback) => {
+  const lobby = lobbies[lobbyId];
 
-  Object.values(lobby.players).forEach((p) => {
-    const li = document.createElement("li");
-    li.innerText = p.nickname;
-    playersList.appendChild(li);
-  });
+  if (!lobby) return callback({ error: "Lobby not found" });
 
-  const isHost = socket.id === lobby.hostId;
-  startBtn.style.display = isHost ? "block" : "none";
+  lobby.players[playerId] = {
+    nickname,
+    socketId: socket.id
+  };
+
+  socket.join(lobbyId);
+
+  callback({ lobbyId });
+  io.to(lobbyId).emit("lobbyUpdate", lobby);
 });
 
 function startGame() {
