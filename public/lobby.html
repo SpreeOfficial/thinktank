@@ -1,11 +1,60 @@
-<h2>Join Lobby</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lobby</title>
+</head>
+<body>
 
-<input id="name" placeholder="Your name">
-<button onclick="join()">Join</button>
+  <h2>Lobby</h2>
 
-<ul id="players"></ul>
+  <div>
+    <strong>Lobby ID:</strong>
+    <span id="lobbyId"></span>
+  </div>
 
-<button onclick="start()">Start Game</button>
+  <br>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="client.js"></script>
+  <input id="name" placeholder="Your name" />
+  <button onclick="handleJoin()">Join</button>
+
+  <p id="status"></p>
+
+  <h3>Players</h3>
+  <ul id="players"></ul>
+
+  <br>
+
+  <button id="startBtn" onclick="start()" disabled>
+    Start Game
+  </button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const lobbyId = params.get("lobby");
+
+    document.getElementById("lobbyId").innerText = lobbyId;
+
+    function handleJoin() {
+      const name = document.getElementById("name").value;
+
+      if (!name) {
+        document.getElementById("status").innerText = "Please enter a name!";
+        return;
+      }
+
+      document.getElementById("status").innerText = "Joining...";
+
+      // calls join() from client.js
+      join();
+    }
+
+    // enable start button when players are present
+    const originalUpdatePlayers = window.updatePlayers;
+  </script>
+
+</body>
+</html>
