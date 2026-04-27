@@ -10,21 +10,18 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 const lobbies = {};
-// lobbyId -> { hostId: playerId, players: { playerId: { nickname, socketId } } }
 
 function generateLobbyId() {
   return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
 io.on("connection", (socket) => {
-  console.log("Connected socket:", socket.id);
-
-  // ✅ SERVER generates playerId
   const playerId = crypto.randomUUID();
   socket.data.playerId = playerId;
 
-  // send to client
   socket.emit("init", { playerId });
+
+  console.log("Connected:", socket.id, playerId);
 
   // CREATE LOBBY
   socket.on("createLobby", ({ nickname }, callback) => {
@@ -33,42 +30,34 @@ io.on("connection", (socket) => {
     lobbies[lobbyId] = {
       hostId: playerId,
       players: {
-        [playerId]: {
-          nickname,
-          socketId: socket.id
-        }
+        [playerId]: { nickname }
       }
     };
 
     socket.join(lobbyId);
 
-    callback({
-      lobbyId,
-      playerId
-    });
+    callback({ lobbyId, playerId });
 
     io.to(lobbyId).emit("lobbyUpdate", lobbies[lobbyId]);
   });
 
-  // JOIN LOBBY
-  socket.on("joinLobby", ({ lobbyId, nickname, playerId }, callback) => {
+  // JOIN LOBBY (STRICT + NO DUPLICATES)
+  socket.on("joinLobby", ({ lobbyId, nickname }, callback) => {
     const lobby = lobbies[lobbyId];
+    if (!lobby) return callback({ error: "Lobby not found" });
 
-    if (!lobby) {
-      return callback({ error: "Lobby not found" });
+    // 🔥 prevent duplicate joins
+    if (lobby.players[playerId]) {
+      return callback({ lobbyId, playerId });
     }
 
     lobby.players[playerId] = {
-      nickname,
-      socketId: socket.id
+      nickname
     };
 
     socket.join(lobbyId);
 
-    callback({
-      lobbyId,
-      playerId
-    });
+    callback({ lobbyId, playerId });
 
     io.to(lobbyId).emit("lobbyUpdate", lobby);
   });
