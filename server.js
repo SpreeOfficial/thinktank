@@ -8,64 +8,79 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-let players = {};
-let gameState = {
-  started: false,
-  currentQuestion: null,
-  round: 0
-};
+const lobbies = {}; 
+// lobbyId -> { hostId, players: {socketId: {nickname}} }
+
+function generateLobbyId() {
+  return Math.random().toString(36).substring(2, 7).toUpperCase();
+}
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("Connected:", socket.id);
 
-  // JOIN LOBBY
-  socket.on("joinLobby", (name) => {
-    players[socket.id] = {
-      id: socket.id,
-      name: name,
-      score: 0
+  socket.on("createLobby", ({ nickname }, callback) => {
+    const lobbyId = generateLobbyId();
+
+    lobbies[lobbyId] = {
+      hostId: socket.id,
+      players: {}
     };
 
-    io.emit("lobbyUpdate", players);
+    lobbies[lobbyId].players[socket.id] = { nickname };
+
+    socket.join(lobbyId);
+
+    callback({ lobbyId, playerId: socket.id });
+
+    io.to(lobbyId).emit("lobbyUpdate", lobbies[lobbyId]);
   });
 
-  // START GAME (host only in future)
-  socket.on("startGame", () => {
-    gameState.started = true;
-    gameState.round = 1;
+  socket.on("joinLobby", ({ lobbyId, nickname }, callback) => {
+    const lobby = lobbies[lobbyId];
+    if (!lobby) return callback({ error: "Lobby not found" });
 
-    io.emit("gameStarted", gameState);
-
-    startRound();
-  });
-
-  // ANSWER FROM PLAYER
-  socket.on("submitAnswer", (answer) => {
-    console.log("Answer from", socket.id, answer);
-
-    // demo scoring
-    if (answer === gameState.currentQuestion?.correct) {
-      players[socket.id].score += 1;
+    if (lobby.players[socket.id]) {
+      return callback({ error: "Already joined this lobby" });
     }
 
-    io.emit("lobbyUpdate", players);
+    lobby.players[socket.id] = { nickname };
+
+    socket.join(lobbyId);
+
+    callback({ lobbyId, playerId: socket.id });
+
+    io.to(lobbyId).emit("lobbyUpdate", lobby);
+  });
+
+  socket.on("startGame", ({ lobbyId }) => {
+    const lobby = lobbies[lobbyId];
+    if (!lobby) return;
+
+    if (socket.id !== lobby.hostId) {
+      return; // only host allowed
+    }
+
+    io.to(lobbyId).emit("gameStarted", { lobbyId });
   });
 
   socket.on("disconnect", () => {
-    delete players[socket.id];
-    io.emit("lobbyUpdate", players);
+    for (const lobbyId in lobbies) {
+      const lobby = lobbies[lobbyId];
+
+      if (lobby.players[socket.id]) {
+        delete lobby.players[socket.id];
+
+        if (Object.keys(lobby.players).length === 0) {
+          delete lobbies[lobbyId];
+        } else {
+          if (lobby.hostId === socket.id) {
+            lobby.hostId = Object.keys(lobby.players)[0];
+          }
+          io.to(lobbyId).emit("lobbyUpdate", lobby);
+        }
+      }
+    }
   });
 });
 
-function startRound() {
-  gameState.currentQuestion = {
-    text: "What is 2 + 2?",
-    correct: "4"
-  };
-
-  io.emit("newRound", gameState.currentQuestion);
-}
-
-server.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
-});
+server.listen(3000, () => console.log("Server running on 3000"));
