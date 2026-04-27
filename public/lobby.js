@@ -25,20 +25,16 @@ socket.on("connect", () => {
   });
 });
 
-socket.on("joinLobby", ({ lobbyId, nickname, playerId }, callback) => {
-  const lobby = lobbies[lobbyId];
+socket.on("lobbyUpdate", (lobby) => {
+  if (!playersList) return;
 
-  if (!lobby) return callback({ error: "Lobby not found" });
+  playersList.innerHTML = "";
 
-  lobby.players[playerId] = {
-    nickname,
-    socketId: socket.id
-  };
-
-  socket.join(lobbyId);
-
-  callback({ lobbyId });
-  io.to(lobbyId).emit("lobbyUpdate", lobby);
+  Object.values(lobby.players).forEach((player) => {
+    const li = document.createElement("li");
+    li.textContent = player.nickname;
+    playersList.appendChild(li);
+  });
 });
 
 function startGame() {
