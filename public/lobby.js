@@ -2,14 +2,10 @@ const params = new URLSearchParams(window.location.search);
 const lobbyId = params.get("lobbyId") || localStorage.getItem("lobbyId");
 const nickname = localStorage.getItem("nickname");
 
-let hasJoined = localStorage.getItem("hasJoined");
-
-if (!hasJoined) {
-  socket.emit("joinLobby", { lobbyId, nickname }, (res) => {
-    if (res.error) return alert(res.error);
-    localStorage.setItem("hasJoined", "true");
-  });
-}
+// ALWAYS join when page loads
+socket.emit("joinLobby", { lobbyId, nickname }, (res) => {
+  if (res.error) return alert(res.error);
+});
 
 socket.on("lobbyUpdate", (lobby) => {
   document.getElementById("lobbyId").innerText = lobbyId;
