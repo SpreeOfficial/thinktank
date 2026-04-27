@@ -7,7 +7,6 @@ function createLobby() {
       return;
     }
 
-    localStorage.setItem("lobbyId", res.lobbyId);
     localStorage.setItem("nickname", nickname);
 
     window.location.href = `/lobby.html?lobbyId=${res.lobbyId}`;
@@ -21,8 +20,8 @@ function joinLobby() {
   socket.emit("joinLobby", { lobbyId, nickname }, (res) => {
     if (res.error) return alert(res.error);
 
-    localStorage.setItem("lobbyId", lobbyId);
     localStorage.setItem("nickname", nickname);
-    window.location.href = "/lobby.html";
+
+    window.location.href = `/lobby.html?lobbyId=${lobbyId}`;
   });
 }
