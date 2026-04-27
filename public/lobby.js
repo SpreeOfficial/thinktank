@@ -20,7 +20,8 @@ socket.on("lobbyUpdate", (lobby) => {
   });
 
   const isHost = socket.id === lobby.hostId;
-  document.getElementById("startBtn").style.display = isHost ? "block" : "none";
+  document.getElementById("startBtn").style.display =
+    isHost ? "block" : "none";
 });
 
 function startGame() {
