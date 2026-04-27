@@ -1,6 +1,4 @@
-<h2>Lobby</h2>
-
-<div>Lobby ID: <b id="lobbyId"></b></div>
+<h2>Join Lobby</h2>
 
 <input id="name" placeholder="Your name">
 <button onclick="join()">Join</button>
@@ -10,10 +8,4 @@
 <button onclick="start()">Start Game</button>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="socket.js"></script>
-<script src="lobby.js"></script>
-
-<script>
-  const lobbyId = new URLSearchParams(window.location.search).get("lobby");
-  document.getElementById("lobbyId").innerText = lobbyId;
-</script>
+<script src="client.js"></script>
