@@ -1,5 +1,5 @@
 const params = new URLSearchParams(window.location.search);
-const lobbyId = params.get("lobbyId") || localStorage.getItem("lobbyId");
+const lobbyId = params.get("lobbyId");
 const nickname = localStorage.getItem("nickname");
 
 // ALWAYS join when page loads
