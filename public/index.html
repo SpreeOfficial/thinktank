@@ -1,9 +1,27 @@
-<input id="nickname" placeholder="Nickname" />
-<button onclick="createLobby()">Create Lobby</button>
-
-<input id="joinLobbyId" placeholder="Lobby ID" />
-<button onclick="joinLobby()">Join Lobby</button>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="socket.js"></script>
-<script src="index.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThinkTank - Card Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🃏 ThinkTank</h1>
+        <p class="center mb10" style="color:#888">Fill in the blanks. Vote for the funniest.</p>
+        <input id="nickname" type="text" placeholder="Enter your nickname..." maxlength="20" />
+        <div class="center">
+            <button onclick="createLobby()">Create Lobby</button>
+        </div>
+        <hr style="border-color:#0f3460; margin:20px 0;">
+        <input id="joinLobbyId" type="text" placeholder="Enter Lobby ID..." maxlength="5" style="text-transform:uppercase" />
+        <div class="center">
+            <button onclick="joinLobby()">Join Lobby</button>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="socket.js"></script>
+    <script src="index.js"></script>
+</body>
+</html>
