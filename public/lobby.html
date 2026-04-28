@@ -1,11 +1,28 @@
-<h1>Lobby: <span id="lobbyId"></span></h1>
-
-<ul id="players"></ul>
-
-<button id="startBtn" onclick="startGame()">
-  Start Game
-</button>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="socket.js"></script>
-<script src="lobby.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThinkTank - Lobby</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🃏 ThinkTank</h1>
+        <p class="phase-label">Lobby</p>
+        <div class="lobby-id-display" id="lobbyId">-----</div>
+        <p class="center" style="color:#888; font-size:0.85rem;">Share this code with friends!</p>
+        <h3 style="color:#e94560; margin-top:15px;">Players</h3>
+        <ul class="player-list" id="players"></ul>
+        <div class="center mt10">
+            <button id="startBtn" onclick="startGame()" style="display:none;">
+                🚀 Start Game
+            </button>
+            <p id="waitMsg" class="waiting-msg">Waiting for the host to start...</p>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="socket.js"></script>
+    <script src="lobby.js"></script>
+</body>
+</html>
