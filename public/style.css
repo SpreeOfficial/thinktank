@@ -14,12 +14,19 @@ h1, h2, h3 { text-align: center; }
 h1 { font-size: 2.2rem; margin-bottom: 10px; color: #e94560; }
 h2 { font-size: 1.5rem; margin-bottom: 8px; color: #0f3460; }
 .container {
-    background: #16213e;
+    background: #0a1118;
     border-radius: 16px;
     padding: 30px;
     max-width: 700px;
     width: 100%;
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.logo {
+    max-width: 100%;
+    width: 350px;
+    margin: 0 auto;
+    display: flex;
+    padding: 20px;
 }
 input[type="text"], input {
     width: 100%;
@@ -38,7 +45,7 @@ button {
     padding: 12px 24px;
     border: none;
     border-radius: 8px;
-    background: #e94560;
+    background: #d19e18;
     color: #fff;
     font-size: 1rem;
     font-weight: 600;
@@ -46,7 +53,7 @@ button {
     transition: background 0.2s, transform 0.1s;
     margin: 5px;
 }
-button:hover { background: #c73651; transform: translateY(-1px); }
+button:hover { background: #fbbb12; transform: translateY(-1px); }
 button:active { transform: translateY(0); }
 button:disabled { background: #555; cursor: not-allowed; }
 .lobby-id-display {
