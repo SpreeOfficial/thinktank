@@ -117,6 +117,7 @@ const ANSWER_CARDS = [
 const HAND_SIZE = 7;
 const ROUND_TIME = 120;
 const VOTE_TIME = 60;
+
 function generateLobbyId() {
     return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
@@ -141,6 +142,22 @@ function dealCards(existingHand, deckRef) {
     }
     return hand;
 }
+
+// ─── Broadcast player status (sidebar scoreboard + ready state) ───
+function broadcastPlayerStatus(lobbyId) {
+    const lobby = lobbies[lobbyId];
+    if (!lobby) return;
+    const game = lobby.game;
+    const players = Object.keys(lobby.players).map(pid => ({
+        id: pid,
+        nickname: lobby.players[pid].nickname,
+        score: game ? (game.scores[pid] || 0) : 0,
+        ready: game ? !!game.submissions[pid] : false,
+    }));
+    io.to(lobbyId).emit("playerStatus", { players });
+}
+
+// ─── START ROUND ───
 function startRound(lobbyId) {
     const lobby = lobbies[lobbyId];
     if (!lobby || !lobby.game) return;
@@ -149,14 +166,18 @@ function startRound(lobbyId) {
     game.round++;
     game.submissions = {};
     game.votes = {};
+
     if (game.sentenceDeck.length === 0) {
         game.sentenceDeck = shuffleArray(SENTENCES);
     }
     game.currentSentence = game.sentenceDeck.pop();
     game.blanksNeeded = countBlanks(game.currentSentence);
+
     for (const pid of Object.keys(lobby.players)) {
         game.hands[pid] = dealCards(game.hands[pid], game.answerDeck);
     }
+
+    // Send roundStart to each player individually (with their hand)
     for (const pid of Object.keys(lobby.players)) {
         const sid = lobby.players[pid].socketId;
         if (sid) {
@@ -169,6 +190,10 @@ function startRound(lobbyId) {
             });
         }
     }
+
+    // Broadcast player status (all not-ready)
+    broadcastPlayerStatus(lobbyId);
+
     game.timerEnd = Date.now() + ROUND_TIME * 1000;
     clearTimeout(game.timer);
     game.timer = setTimeout(() => endPlayPhase(lobbyId), ROUND_TIME * 1000);
@@ -179,6 +204,8 @@ function startRound(lobbyId) {
         if (left <= 0) clearInterval(game.tickInterval);
     }, 1000);
 }
+
+// ─── END PLAY PHASE → VOTING ───
 function endPlayPhase(lobbyId) {
     const lobby = lobbies[lobbyId];
     if (!lobby || !lobby.game) return;
@@ -187,14 +214,27 @@ function endPlayPhase(lobbyId) {
     clearInterval(game.tickInterval);
     game.phase = "voting";
     game.votes = {};
+
+    // Auto-submit partial/empty answers for players who didn't submit
+    for (const pid of Object.keys(lobby.players)) {
+        if (!game.submissions[pid]) {
+            // Submit whatever they had selected (empty array = blank sentence)
+            game.submissions[pid] = [];
+        }
+    }
+
     const submissionsList = Object.entries(game.submissions).map(([pid, cards]) => {
         let filled = game.currentSentence;
         cards.forEach(c => {
             filled = filled.replace("___", "<strong>" + c + "</strong>");
         });
-        return { oderId: pid, filledSentence: filled };
+        // Replace any remaining unfilled blanks
+        filled = filled.replace(/___/g, '<strong class="unfilled">______</strong>');
+        return { ownerId: pid, filledSentence: filled };
     });
+
     const shuffled = shuffleArray(submissionsList);
+
     for (const pid of Object.keys(lobby.players)) {
         const sid = lobby.players[pid].socketId;
         if (sid) {
@@ -205,6 +245,10 @@ function endPlayPhase(lobbyId) {
             });
         }
     }
+
+    // Broadcast status (all ready now since round ended)
+    broadcastPlayerStatus(lobbyId);
+
     game.timerEnd = Date.now() + VOTE_TIME * 1000;
     clearTimeout(game.timer);
     game.timer = setTimeout(() => endVotePhase(lobbyId), VOTE_TIME * 1000);
@@ -215,6 +259,7 @@ function endPlayPhase(lobbyId) {
         if (left <= 0) clearInterval(game.tickInterval);
     }, 1000);
 }
+
 function checkAllSubmitted(lobbyId) {
     const lobby = lobbies[lobbyId];
     if (!lobby || !lobby.game) return;
@@ -225,6 +270,7 @@ function checkAllSubmitted(lobbyId) {
         endPlayPhase(lobbyId);
     }
 }
+
 function checkAllVoted(lobbyId) {
     const lobby = lobbies[lobbyId];
     if (!lobby || !lobby.game) return;
@@ -235,12 +281,14 @@ function checkAllVoted(lobbyId) {
         endVotePhase(lobbyId);
     }
 }
+
 function endVotePhase(lobbyId) {
     const lobby = lobbies[lobbyId];
     if (!lobby || !lobby.game) return;
     const game = lobby.game;
     clearTimeout(game.timer);
     clearInterval(game.tickInterval);
+
     const roundScores = {};
     for (const pid of Object.keys(lobby.players)) {
         roundScores[pid] = 0;
@@ -261,11 +309,13 @@ function endVotePhase(lobbyId) {
             roundWinner = pid;
         }
     }
+
     const results = Object.keys(lobby.players).map(pid => {
         let filled = game.currentSentence;
         (game.submissions[pid] || []).forEach(c => {
             filled = filled.replace("___", "<strong>" + c + "</strong>");
         });
+        filled = filled.replace(/___/g, '<strong class="unfilled">______</strong>');
         return {
             playerId: pid,
             nickname: lobby.players[pid].nickname,
@@ -274,16 +324,26 @@ function endVotePhase(lobbyId) {
             totalScore: game.scores[pid] || 0,
         };
     });
+
     io.to(lobbyId).emit("roundResults", {
         round: game.round,
         roundWinner: roundWinner ? lobby.players[roundWinner]?.nickname : null,
         results,
     });
+
     game.phase = "results";
+
+    // Update sidebar with new scores
+    broadcastPlayerStatus(lobbyId);
+
     game.timer = setTimeout(() => {
         startRound(lobbyId);
     }, 10000);
 }
+
+// ═══════════════════════════════════════
+// SOCKET HANDLING
+// ═══════════════════════════════════════
 io.on("connection", (socket) => {
     console.log("Connected:", socket.id);
 
@@ -319,7 +379,6 @@ io.on("connection", (socket) => {
             // Reconnecting existing player — update socket
             lobby.players[pid].socketId = socket.id;
             if (nickname) lobby.players[pid].nickname = nickname;
-            // Clear any pending disconnect timer
             if (lobby.players[pid]._disconnectTimer) {
                 clearTimeout(lobby.players[pid]._disconnectTimer);
                 delete lobby.players[pid]._disconnectTimer;
@@ -328,6 +387,29 @@ io.on("connection", (socket) => {
             socket.data.lobbyId = lobbyId;
             socket.data.playerId = pid;
             callback({ lobbyId, playerId: pid });
+
+            // If game is waiting for players to reconnect after gameStarted, check if all are back
+            if (lobby.game && lobby.game.phase === "waiting") {
+                lobby.game._reconnected.add(pid);
+                const allBack = Object.keys(lobby.players).every(p => lobby.game._reconnected.has(p));
+                if (allBack) {
+                    clearTimeout(lobby.game._waitTimer);
+                    delete lobby.game._waitTimer;
+                    delete lobby.game._reconnected;
+                    startRound(lobbyId);
+                }
+            }
+            // If game is already in a round, resend the current state to this player
+            else if (lobby.game && lobby.game.phase === "playing") {
+                io.to(socket.id).emit("roundStart", {
+                    round: lobby.game.round,
+                    sentence: lobby.game.currentSentence,
+                    blanksNeeded: lobby.game.blanksNeeded,
+                    hand: lobby.game.hands[pid] || [],
+                    timeLeft: Math.max(0, Math.ceil((lobby.game.timerEnd - Date.now()) / 1000)),
+                });
+                broadcastPlayerStatus(lobbyId);
+            }
         } else {
             // New player joining
             if (lobby.game && lobby.game.phase !== null) {
@@ -361,7 +443,7 @@ io.on("connection", (socket) => {
         }
         lobby.game = {
             round: 0,
-            phase: null,
+            phase: "waiting",  // waiting for players to reconnect on game.html
             currentSentence: null,
             blanksNeeded: 0,
             submissions: {},
@@ -373,12 +455,22 @@ io.on("connection", (socket) => {
             timer: null,
             tickInterval: null,
             timerEnd: null,
+            _reconnected: new Set(),
         };
         for (const pid of Object.keys(lobby.players)) {
             lobby.game.scores[pid] = 0;
         }
+
         io.to(lobbyId).emit("gameStarted", { lobbyId });
-        setTimeout(() => startRound(lobbyId), 1500);
+
+        // Wait up to 5 seconds for all players to reconnect on game.html, then start anyway
+        lobby.game._waitTimer = setTimeout(() => {
+            if (lobby.game && lobby.game.phase === "waiting") {
+                delete lobby.game._reconnected;
+                delete lobby.game._waitTimer;
+                startRound(lobbyId);
+            }
+        }, 5000);
     });
 
     // SUBMIT CARDS
@@ -398,6 +490,10 @@ io.on("connection", (socket) => {
         });
         game.hands[pid] = hand;
         socket.emit("submitAck", { ok: true });
+
+        // Broadcast updated player status (shows who's ready)
+        broadcastPlayerStatus(lobbyId);
+
         checkAllSubmitted(lobbyId);
     });
 
@@ -423,8 +519,6 @@ io.on("connection", (socket) => {
         const lobby = lobbies[lobbyId];
         if (!lobby || !lobby.players[pid]) return;
 
-        // If game is in progress, give a grace period for reconnect
-        // If in lobby (no game), remove after a shorter timeout
         const timeout = lobby.game ? 60000 : 15000;
         lobby.players[pid]._disconnectTimer = setTimeout(() => {
             const l = lobbies[lobbyId];
@@ -448,4 +542,5 @@ io.on("connection", (socket) => {
         }, timeout);
     });
 });
+
 server.listen(3000, () => console.log("Server running on http://localhost:3000"));
