@@ -285,12 +285,11 @@ function endVotePhase(lobbyId) {
     }, 10000);
 }
 io.on("connection", (socket) => {
-    const playerId = crypto.randomUUID();
-    socket.data.playerId = playerId;
-    socket.emit("init", { playerId });
-    console.log("Connected:", socket.id, playerId);
+    console.log("Connected:", socket.id);
+
     // CREATE LOBBY
     socket.on("createLobby", ({ nickname }, callback) => {
+        const playerId = crypto.randomUUID();
         const lobbyId = generateLobbyId();
         lobbies[lobbyId] = {
             hostId: playerId,
@@ -301,37 +300,56 @@ io.on("connection", (socket) => {
         };
         socket.join(lobbyId);
         socket.data.lobbyId = lobbyId;
+        socket.data.playerId = playerId;
         callback({ lobbyId, playerId });
         io.to(lobbyId).emit("lobbyUpdate", {
             hostId: lobbies[lobbyId].hostId,
             players: lobbies[lobbyId].players,
         });
     });
+
     // JOIN LOBBY
     socket.on("joinLobby", ({ lobbyId, nickname, playerId: reqPlayerId }, callback) => {
         const lobby = lobbies[lobbyId];
         if (!lobby) return callback({ error: "Lobby not found" });
-        const pid = reqPlayerId || playerId;
-        if (lobby.players[pid]) {
+
+        const pid = reqPlayerId && lobby.players[reqPlayerId] ? reqPlayerId : null;
+
+        if (pid) {
+            // Reconnecting existing player — update socket
             lobby.players[pid].socketId = socket.id;
+            if (nickname) lobby.players[pid].nickname = nickname;
+            // Clear any pending disconnect timer
+            if (lobby.players[pid]._disconnectTimer) {
+                clearTimeout(lobby.players[pid]._disconnectTimer);
+                delete lobby.players[pid]._disconnectTimer;
+            }
+            socket.join(lobbyId);
+            socket.data.lobbyId = lobbyId;
+            socket.data.playerId = pid;
+            callback({ lobbyId, playerId: pid });
         } else {
+            // New player joining
             if (lobby.game && lobby.game.phase !== null) {
                 return callback({ error: "Game already in progress" });
             }
-            lobby.players[pid] = {
+            const newPid = crypto.randomUUID();
+            lobby.players[newPid] = {
                 nickname,
                 socketId: socket.id,
             };
+            socket.join(lobbyId);
+            socket.data.lobbyId = lobbyId;
+            socket.data.playerId = newPid;
+            callback({ lobbyId, playerId: newPid });
         }
-        socket.join(lobbyId);
-        socket.data.lobbyId = lobbyId;
-        socket.data.playerId = pid;
-        callback({ lobbyId, playerId: pid });
+
         io.to(lobbyId).emit("lobbyUpdate", {
             hostId: lobby.hostId,
             players: lobby.players,
         });
     });
+
     // START GAME
     socket.on("startGame", ({ lobbyId }) => {
         const lobby = lobbies[lobbyId];
@@ -362,6 +380,7 @@ io.on("connection", (socket) => {
         io.to(lobbyId).emit("gameStarted", { lobbyId });
         setTimeout(() => startRound(lobbyId), 1500);
     });
+
     // SUBMIT CARDS
     socket.on("submitCards", ({ lobbyId, cards }) => {
         const lobby = lobbies[lobbyId];
@@ -381,6 +400,7 @@ io.on("connection", (socket) => {
         socket.emit("submitAck", { ok: true });
         checkAllSubmitted(lobbyId);
     });
+
     // VOTE
     socket.on("vote", ({ lobbyId, votedForId }) => {
         const lobby = lobbies[lobbyId];
@@ -394,8 +414,38 @@ io.on("connection", (socket) => {
         socket.emit("voteAck", { ok: true });
         checkAllVoted(lobbyId);
     });
+
     socket.on("disconnect", () => {
         console.log("Disconnected:", socket.id);
+        const lobbyId = socket.data.lobbyId;
+        const pid = socket.data.playerId;
+        if (!lobbyId || !pid) return;
+        const lobby = lobbies[lobbyId];
+        if (!lobby || !lobby.players[pid]) return;
+
+        // If game is in progress, give a grace period for reconnect
+        // If in lobby (no game), remove after a shorter timeout
+        const timeout = lobby.game ? 60000 : 15000;
+        lobby.players[pid]._disconnectTimer = setTimeout(() => {
+            const l = lobbies[lobbyId];
+            if (!l || !l.players[pid]) return;
+            // Only remove if still disconnected (socketId hasn't changed)
+            if (l.players[pid].socketId === socket.id) {
+                delete l.players[pid];
+                io.to(lobbyId).emit("lobbyUpdate", {
+                    hostId: l.hostId,
+                    players: l.players,
+                });
+                // Clean up empty lobbies
+                if (Object.keys(l.players).length === 0) {
+                    if (l.game) {
+                        clearTimeout(l.game.timer);
+                        clearInterval(l.game.tickInterval);
+                    }
+                    delete lobbies[lobbyId];
+                }
+            }
+        }, timeout);
     });
 });
 server.listen(3000, () => console.log("Server running on http://localhost:3000"));

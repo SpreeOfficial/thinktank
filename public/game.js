@@ -17,11 +17,14 @@ const submitBtn = document.getElementById("submitBtn");
 const votingEl = document.getElementById("voting");
 const resultsEl = document.getElementById("results");
 const scoreboardEl = document.getElementById("scoreboard");
-socket.on("init", (data) => {
-    myId = data.playerId;
-    // rejoin lobby so server knows our socket
-    const nickname = localStorage.getItem("nickname") || "Player";
-    socket.emit("joinLobby", { lobbyId, nickname, playerId: myId }, () => {});
+// Rejoin lobby so server knows our new socket
+myId = localStorage.getItem("playerId");
+const nickname = localStorage.getItem("nickname") || "Player";
+socket.emit("joinLobby", { lobbyId, nickname, playerId: myId }, (res) => {
+    if (res && res.playerId) {
+        myId = res.playerId;
+        localStorage.setItem("playerId", myId);
+    }
 });
 // ─── TIMER ───
 socket.on("tick", ({ timeLeft }) => {
@@ -189,8 +192,8 @@ socket.on("roundResults", ({ round, roundWinner, results }) => {
         item.innerHTML =
             '<div class="answer">' + r.filledSentence + '</div>' +
             '<div class="meta">' +
-                '<span>' + escapeHtml(r.nickname) + '</span>' +
-                '<span>+' + r.roundPoints + ' vote' + (r.roundPoints !== 1 ? 's' : '') + '</span>' +
+            '<span>' + escapeHtml(r.nickname) + '</span>' +
+            '<span>+' + r.roundPoints + ' vote' + (r.roundPoints !== 1 ? 's' : '') + '</span>' +
             '</div>';
         listDiv.appendChild(item);
     });

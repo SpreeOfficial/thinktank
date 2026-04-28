@@ -7,22 +7,33 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
+<!-- Nickname overlay for direct URL join -->
+<div id="nicknameOverlay" class="nickname-overlay" style="display:none;">
+    <div class="container" style="max-width:400px;">
         <img class="logo" src="../media/thinktank-transparent-blue.png"/>
-        <p class="phase-label">Lobby</p>
-        <div class="lobby-id-display" id="lobbyId">-----</div>
-        <p class="center" style="color:#888; font-size:0.85rem;">Share this code with friends!</p>
-        <h3 style="color:#d19e18; margin-top:15px;">Players</h3>
-        <ul class="player-list" id="players"></ul>
-        <div class="center mt10">
-            <button id="startBtn" onclick="startGame()" style="display:none;">
-                🚀 Start Game
-            </button>
-            <p id="waitMsg" class="waiting-msg">Waiting for the host to start...</p>
+        <p class="center mb10" style="color:#888">Enter your nickname to join the lobby</p>
+        <input id="nicknameInput" type="text" placeholder="Enter your nickname..." maxlength="20" onkeydown="if(event.key==='Enter')joinWithNickname()" />
+        <div class="center">
+            <button onclick="joinWithNickname()">Join Lobby</button>
         </div>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="socket.js"></script>
-    <script src="lobby.js"></script>
+</div>
+<div class="container">
+    <img class="logo" src="../media/thinktank-transparent-blue.png"/>
+    <p class="phase-label">Lobby</p>
+    <div class="lobby-id-display" id="lobbyId">-----</div>
+    <p class="center" style="color:#888; font-size:0.85rem;">Share this code with friends!</p>
+    <h3 style="color:#d19e18; margin-top:15px;">Players</h3>
+    <ul class="player-list" id="players"></ul>
+    <div class="center mt10">
+        <button id="startBtn" onclick="startGame()" style="display:none;">
+            🚀 Start Game
+        </button>
+        <p id="waitMsg" class="waiting-msg">Waiting for the host to start...</p>
+    </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="socket.js"></script>
+<script src="lobby.js"></script>
 </body>
 </html>

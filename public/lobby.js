@@ -4,30 +4,52 @@ const playersList = document.getElementById("players");
 const lobbyIdText = document.getElementById("lobbyId");
 const startBtn = document.getElementById("startBtn");
 const waitMsg = document.getElementById("waitMsg");
-let playerId = null;
+const nicknameOverlay = document.getElementById("nicknameOverlay");
+const nicknameInput = document.getElementById("nicknameInput");
+
+let playerId = localStorage.getItem("playerId");
 let nickname = localStorage.getItem("nickname");
 let hasJoined = false;
+
 if (lobbyIdText) lobbyIdText.innerText = lobbyId || "-----";
+
 if (!lobbyId) {
     alert("Missing lobbyId in URL");
     window.location.href = "/";
 }
-socket.on("init", (data) => {
-    playerId = data.playerId;
-    if (!hasJoined) {
-        hasJoined = true;
-        socket.emit("joinLobby", { lobbyId, nickname, playerId }, (res) => {
-            if (res && res.error) {
-                alert(res.error);
-                window.location.href = "/";
-            }
-            if (res && res.playerId) {
-                playerId = res.playerId;
-                localStorage.setItem("playerId", playerId);
-            }
-        });
-    }
-});
+
+// If we have no nickname (direct URL visit), show overlay
+if (!nickname) {
+    if (nicknameOverlay) nicknameOverlay.style.display = "flex";
+} else {
+    joinLobbyNow();
+}
+
+function joinWithNickname() {
+    const val = nicknameInput ? nicknameInput.value.trim() : "";
+    if (!val) return alert("Enter a nickname!");
+    nickname = val;
+    localStorage.setItem("nickname", nickname);
+    if (nicknameOverlay) nicknameOverlay.style.display = "none";
+    joinLobbyNow();
+}
+
+function joinLobbyNow() {
+    if (hasJoined) return;
+    hasJoined = true;
+    socket.emit("joinLobby", { lobbyId, nickname, playerId }, (res) => {
+        if (res && res.error) {
+            alert(res.error);
+            window.location.href = "/";
+            return;
+        }
+        if (res && res.playerId) {
+            playerId = res.playerId;
+            localStorage.setItem("playerId", playerId);
+        }
+    });
+}
+
 socket.on("lobbyUpdate", (lobby) => {
     if (!playersList) return;
     playersList.innerHTML = "";
@@ -54,12 +76,15 @@ socket.on("lobbyUpdate", (lobby) => {
         waitMsg.style.display = "block";
     }
 });
+
 function startGame() {
     socket.emit("startGame", { lobbyId });
 }
+
 socket.on("gameStarted", (data) => {
     window.location.href = "/game.html?lobbyId=" + (data.lobbyId || lobbyId);
 });
+
 socket.on("errorMsg", (data) => {
     alert(data.msg);
 });

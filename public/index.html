@@ -7,21 +7,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <img class="logo" src="../media/thinktank-transparent-blue.png"/>
-        <p class="center mb10" style="color:#888">Fill in the blanks. Vote for the funniest.</p>
-        <input id="nickname" type="text" placeholder="Enter your nickname..." maxlength="20" />
-        <div class="center">
-            <button onclick="createLobby()">Create Lobby</button>
-        </div>
-        <hr style="border-color:#0f3460; margin:20px 0;">
-        <input id="joinLobbyId" type="text" placeholder="Enter Lobby ID..." maxlength="5" style="text-transform:uppercase" />
-        <div class="center">
-            <button onclick="joinLobby()">Join Lobby</button>
-        </div>
+<div class="container">
+    <img class="logo" src="../media/thinktank-transparent-blue.png"/>
+    <p class="center mb10" style="color:#888">Fill in the blanks. Vote for the funniest.</p>
+    <input id="nickname" type="text" placeholder="Enter your nickname..." maxlength="20" />
+    <div class="center">
+        <button onclick="createLobby()">Create Lobby</button>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="socket.js"></script>
-    <script src="index.js"></script>
+    <hr style="border-color:#0f3460; margin:20px 0;">
+    <input id="joinLobbyId" type="text" placeholder="Enter Lobby ID..." maxlength="5" style="text-transform:uppercase" />
+    <div class="center">
+        <button onclick="joinLobby()">Join Lobby</button>
+    </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="socket.js"></script>
+<script src="index.js"></script>
 </body>
 </html>
