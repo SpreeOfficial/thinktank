@@ -361,6 +361,7 @@ io.on("connection", (socket) => {
         socket.join(lobbyId);
         socket.data.lobbyId = lobbyId;
         socket.data.playerId = playerId;
+        console.log("Lobby created:", lobbyId, "by", nickname, playerId);
         callback({ lobbyId, playerId });
         io.to(lobbyId).emit("lobbyUpdate", {
             hostId: lobbies[lobbyId].hostId,
@@ -371,9 +372,13 @@ io.on("connection", (socket) => {
     // JOIN LOBBY
     socket.on("joinLobby", ({ lobbyId, nickname, playerId: reqPlayerId }, callback) => {
         const lobby = lobbies[lobbyId];
-        if (!lobby) return callback({ error: "Lobby not found" });
+        if (!lobby) {
+            console.log("joinLobby FAIL: lobby not found", lobbyId);
+            return callback({ error: "Lobby not found" });
+        }
 
         const pid = reqPlayerId && lobby.players[reqPlayerId] ? reqPlayerId : null;
+        console.log("joinLobby:", lobbyId, "nick:", nickname, "reqPid:", reqPlayerId, "found:", !!pid, "phase:", lobby.game?.phase);
 
         if (pid) {
             // Reconnecting existing player — update socket
@@ -388,11 +393,13 @@ io.on("connection", (socket) => {
             socket.data.playerId = pid;
             callback({ lobbyId, playerId: pid });
 
-            // If game is waiting for players to reconnect after gameStarted, check if all are back
-            if (lobby.game && lobby.game.phase === "waiting") {
+            // If game is waiting for players to reconnect after gameStarted
+            if (lobby.game && lobby.game.phase === "waiting" && lobby.game._reconnected) {
                 lobby.game._reconnected.add(pid);
+                console.log("Player reconnected during waiting:", pid, "reconnected:", lobby.game._reconnected.size, "/", Object.keys(lobby.players).length);
                 const allBack = Object.keys(lobby.players).every(p => lobby.game._reconnected.has(p));
                 if (allBack) {
+                    console.log("All players reconnected, starting round for", lobbyId);
                     clearTimeout(lobby.game._waitTimer);
                     delete lobby.game._waitTimer;
                     delete lobby.game._reconnected;
@@ -401,6 +408,7 @@ io.on("connection", (socket) => {
             }
             // If game is already in a round, resend the current state to this player
             else if (lobby.game && lobby.game.phase === "playing") {
+                console.log("Resending roundStart to reconnected player:", pid);
                 io.to(socket.id).emit("roundStart", {
                     round: lobby.game.round,
                     sentence: lobby.game.currentSentence,
@@ -408,6 +416,10 @@ io.on("connection", (socket) => {
                     hand: lobby.game.hands[pid] || [],
                     timeLeft: Math.max(0, Math.ceil((lobby.game.timerEnd - Date.now()) / 1000)),
                 });
+            }
+
+            // Always send player status when game exists
+            if (lobby.game) {
                 broadcastPlayerStatus(lobbyId);
             }
         } else {
@@ -423,6 +435,7 @@ io.on("connection", (socket) => {
             socket.join(lobbyId);
             socket.data.lobbyId = lobbyId;
             socket.data.playerId = newPid;
+            console.log("New player joined:", newPid, nickname);
             callback({ lobbyId, playerId: newPid });
         }
 
@@ -430,6 +443,56 @@ io.on("connection", (socket) => {
             hostId: lobby.hostId,
             players: lobby.players,
         });
+    });
+
+    // REQUEST GAME STATE — client can ask for current state after reconnecting
+    socket.on("requestGameState", ({ lobbyId }, callback) => {
+        const lobby = lobbies[lobbyId];
+        if (!lobby) return callback({ error: "Lobby not found" });
+        const pid = socket.data.playerId;
+        const game = lobby.game;
+        console.log("requestGameState:", lobbyId, "pid:", pid, "phase:", game?.phase);
+
+        if (!game || !pid) return callback({ phase: null });
+
+        // Always send player status
+        broadcastPlayerStatus(lobbyId);
+
+        if (game.phase === "waiting") {
+            return callback({ phase: "waiting" });
+        }
+        if (game.phase === "playing") {
+            const timeLeft = Math.max(0, Math.ceil((game.timerEnd - Date.now()) / 1000));
+            return callback({
+                phase: "playing",
+                round: game.round,
+                sentence: game.currentSentence,
+                blanksNeeded: game.blanksNeeded,
+                hand: game.hands[pid] || [],
+                timeLeft,
+                alreadySubmitted: !!game.submissions[pid],
+            });
+        }
+        if (game.phase === "voting") {
+            const submissionsList = Object.entries(game.submissions).map(([id, cards]) => {
+                let filled = game.currentSentence;
+                cards.forEach(c => { filled = filled.replace("___", "<strong>" + c + "</strong>"); });
+                filled = filled.replace(/___/g, '<strong class="unfilled">______</strong>');
+                return { ownerId: id, filledSentence: filled };
+            });
+            const timeLeft = Math.max(0, Math.ceil((game.timerEnd - Date.now()) / 1000));
+            return callback({
+                phase: "voting",
+                submissions: shuffleArray(submissionsList),
+                myId: pid,
+                timeLeft,
+                alreadyVoted: !!game.votes[pid],
+            });
+        }
+        if (game.phase === "results") {
+            return callback({ phase: "results" });
+        }
+        callback({ phase: game.phase });
     });
 
     // START GAME
@@ -441,9 +504,10 @@ io.on("connection", (socket) => {
             socket.emit("errorMsg", { msg: "Need at least 2 players to start!" });
             return;
         }
+        console.log("Starting game for lobby:", lobbyId, "players:", Object.keys(lobby.players).length);
         lobby.game = {
             round: 0,
-            phase: "waiting",  // waiting for players to reconnect on game.html
+            phase: "waiting",
             currentSentence: null,
             blanksNeeded: 0,
             submissions: {},
@@ -466,6 +530,7 @@ io.on("connection", (socket) => {
         // Wait up to 5 seconds for all players to reconnect on game.html, then start anyway
         lobby.game._waitTimer = setTimeout(() => {
             if (lobby.game && lobby.game.phase === "waiting") {
+                console.log("Wait timeout reached, starting round for", lobbyId);
                 delete lobby.game._reconnected;
                 delete lobby.game._waitTimer;
                 startRound(lobbyId);
@@ -482,6 +547,7 @@ io.on("connection", (socket) => {
         const pid = socket.data.playerId;
         if (game.submissions[pid]) return;
         if (cards.length !== game.blanksNeeded) return;
+        console.log("Player submitted:", pid, cards);
         game.submissions[pid] = cards;
         const hand = game.hands[pid] || [];
         cards.forEach(c => {
@@ -525,18 +591,19 @@ io.on("connection", (socket) => {
             if (!l || !l.players[pid]) return;
             // Only remove if still disconnected (socketId hasn't changed)
             if (l.players[pid].socketId === socket.id) {
+                console.log("Removing disconnected player:", pid);
                 delete l.players[pid];
                 io.to(lobbyId).emit("lobbyUpdate", {
                     hostId: l.hostId,
                     players: l.players,
                 });
-                // Clean up empty lobbies
                 if (Object.keys(l.players).length === 0) {
                     if (l.game) {
                         clearTimeout(l.game.timer);
                         clearInterval(l.game.tickInterval);
                     }
                     delete lobbies[lobbyId];
+                    console.log("Lobby deleted:", lobbyId);
                 }
             }
         }, timeout);

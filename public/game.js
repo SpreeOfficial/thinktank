@@ -8,6 +8,7 @@ let selectedCards = [];
 let currentHand = [];
 let hasSubmitted = false;
 let hasVoted = false;
+let gameStateReceived = false;
 
 // DOM refs
 const timerEl = document.getElementById("timer");
@@ -23,21 +24,100 @@ const votingEl = document.getElementById("voting");
 const resultsEl = document.getElementById("results");
 const sidebarPlayersEl = document.getElementById("sidebarPlayers");
 
-// ─── RECONNECT ───
+if (!lobbyId) {
+    alert("Missing lobbyId");
+    window.location.href = "/";
+}
+
+// ─── RECONNECT: join lobby, then request game state ───
 myId = localStorage.getItem("playerId");
 const nickname = localStorage.getItem("nickname") || "Player";
-socket.emit("joinLobby", { lobbyId, nickname, playerId: myId }, (res) => {
-    if (res && res.playerId) {
-        myId = res.playerId;
-        localStorage.setItem("playerId", myId);
-    }
+
+socket.on("connect", () => {
+    console.log("[game] socket connected, joining lobby...");
+    socket.emit("joinLobby", { lobbyId, nickname, playerId: myId }, (res) => {
+        if (res && res.error) {
+            console.error("[game] joinLobby error:", res.error);
+            alert(res.error);
+            window.location.href = "/";
+            return;
+        }
+        if (res && res.playerId) {
+            myId = res.playerId;
+            localStorage.setItem("playerId", myId);
+        }
+        console.log("[game] joined lobby, myId:", myId);
+
+        // After a short delay, if we haven't received roundStart yet, request game state
+        setTimeout(() => {
+            if (!gameStateReceived) {
+                console.log("[game] no roundStart received yet, requesting game state...");
+                socket.emit("requestGameState", { lobbyId }, handleGameState);
+            }
+        }, 2000);
+    });
 });
 
-// ─── SIDEBAR: Player list & scores ───
+// ─── Handle game state from requestGameState ───
+function handleGameState(state) {
+    console.log("[game] received game state:", state?.phase);
+    if (!state || state.error) return;
+
+    if (state.phase === "waiting") {
+        phaseLabelEl.textContent = "Starting soon...";
+        return;
+    }
+    if (state.phase === "playing" && !gameStateReceived) {
+        // Manually trigger the roundStart handler
+        handleRoundStart({
+            round: state.round,
+            sentence: state.sentence,
+            blanksNeeded: state.blanksNeeded,
+            hand: state.hand,
+            timeLeft: state.timeLeft,
+        });
+        if (state.alreadySubmitted) {
+            hasSubmitted = true;
+            submitBtn.disabled = true;
+            submitBtn.classList.add("ready-submitted");
+            submitBtnText.textContent = "✔ Ready!";
+            phaseLabelEl.textContent = "Waiting for other players...";
+            handEl.querySelectorAll(".card").forEach(c => c.classList.add("disabled"));
+        }
+    }
+    if (state.phase === "voting" && !gameStateReceived) {
+        handleVotePhase({
+            submissions: state.submissions,
+            myId: state.myId,
+            timeLeft: state.timeLeft,
+        });
+        if (state.alreadyVoted) {
+            hasVoted = true;
+            phaseLabelEl.textContent = "Vote placed! Waiting for others...";
+        }
+    }
+}
+
+// ─── SIDEBAR: Player list & scores from playerStatus ───
 socket.on("playerStatus", ({ players }) => {
+    renderSidebar(players);
+});
+
+// ─── SIDEBAR: Also populate from lobbyUpdate (initial load) ───
+socket.on("lobbyUpdate", (lobby) => {
+    if (!lobby || !lobby.players) return;
+    const players = Object.entries(lobby.players).map(([pid, p]) => ({
+        id: pid,
+        nickname: p.nickname,
+        score: 0,
+        ready: false,
+    }));
+    renderSidebar(players);
+});
+
+function renderSidebar(players) {
     if (!sidebarPlayersEl) return;
     sidebarPlayersEl.innerHTML = "";
-    // Sort by score desc
     const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
     sorted.forEach((p, i) => {
         const li = document.createElement("li");
@@ -55,7 +135,7 @@ socket.on("playerStatus", ({ players }) => {
             '<span class="sidebar-score">' + (p.score || 0) + ' pts</span>';
         sidebarPlayersEl.appendChild(li);
     });
-});
+}
 
 // ─── TIMER ───
 socket.on("tick", ({ timeLeft }) => {
@@ -68,7 +148,13 @@ socket.on("tick", ({ timeLeft }) => {
 });
 
 // ─── ROUND START (Play Phase) ───
-socket.on("roundStart", ({ round, sentence, blanksNeeded: bn, hand, timeLeft }) => {
+socket.on("roundStart", (data) => {
+    console.log("[game] roundStart received:", data.round);
+    handleRoundStart(data);
+});
+
+function handleRoundStart({ round, sentence, blanksNeeded: bn, hand, timeLeft }) {
+    gameStateReceived = true;
     currentSentence = sentence;
     blanksNeeded = bn;
     selectedCards = [];
@@ -100,7 +186,7 @@ socket.on("roundStart", ({ round, sentence, blanksNeeded: bn, hand, timeLeft }) 
 
     timerEl.textContent = timeLeft + "s";
     timerEl.classList.remove("warning");
-});
+}
 
 // ─── RENDER SENTENCE with clickable blanks ───
 function renderSentence() {
@@ -132,9 +218,7 @@ function removeCardFromBlank(blankIdx) {
     if (blankIdx < 0 || blankIdx >= selectedCards.length) return;
     const card = selectedCards[blankIdx];
     if (!card) return;
-    // Remove from selected
     selectedCards.splice(blankIdx, 1);
-    // Add back to hand
     currentHand.push(card);
     renderHand();
     renderSentence();
@@ -148,9 +232,6 @@ function renderHand() {
         const div = document.createElement("div");
         div.className = "card";
         div.textContent = cardText;
-        if (selectedCards.includes(cardText)) {
-            div.classList.add("selected");
-        }
         if (hasSubmitted) {
             div.classList.add("disabled");
         }
@@ -164,21 +245,16 @@ function renderHand() {
 
 // ─── TOGGLE CARD selection ───
 function toggleCard(cardText) {
-    const idx = selectedCards.indexOf(cardText);
-    if (idx !== -1) {
-        // Deselect: remove from selected, add back to hand
-        selectedCards.splice(idx, 1);
-    } else {
-        if (selectedCards.length >= blanksNeeded) {
-            // At max, pop the first selected card back into hand
-            const removed = selectedCards.shift();
-            currentHand.push(removed);
-        }
-        selectedCards.push(cardText);
-        // Remove from hand display
-        const handIdx = currentHand.indexOf(cardText);
-        if (handIdx !== -1) currentHand.splice(handIdx, 1);
+    if (selectedCards.length >= blanksNeeded) {
+        // At max, pop the first selected card back into hand
+        const removed = selectedCards.shift();
+        currentHand.push(removed);
     }
+    selectedCards.push(cardText);
+    // Remove from hand
+    const handIdx = currentHand.indexOf(cardText);
+    if (handIdx !== -1) currentHand.splice(handIdx, 1);
+
     renderHand();
     renderSentence();
     updateSubmitButton();
@@ -200,12 +276,17 @@ socket.on("submitAck", () => {
     submitBtn.classList.add("ready-submitted");
     submitBtnText.textContent = "✔ Ready!";
     phaseLabelEl.textContent = "Waiting for other players...";
-    // Disable hand cards
     handEl.querySelectorAll(".card").forEach(c => c.classList.add("disabled"));
 });
 
 // ─── VOTE PHASE ───
-socket.on("votePhase", ({ submissions, myId: serverMyId, timeLeft }) => {
+socket.on("votePhase", (data) => {
+    console.log("[game] votePhase received");
+    handleVotePhase(data);
+});
+
+function handleVotePhase({ submissions, myId: serverMyId, timeLeft }) {
+    gameStateReceived = true;
     myId = serverMyId || myId;
     hasVoted = false;
 
@@ -244,7 +325,7 @@ socket.on("votePhase", ({ submissions, myId: serverMyId, timeLeft }) => {
 
     timerEl.textContent = timeLeft + "s";
     timerEl.classList.remove("warning");
-});
+}
 
 socket.on("voteAck", () => {
     phaseLabelEl.textContent = "Vote placed! Waiting for others...";
@@ -252,6 +333,7 @@ socket.on("voteAck", () => {
 
 // ─── ROUND RESULTS ───
 socket.on("roundResults", ({ round, roundWinner, results }) => {
+    gameStateReceived = true;
     phaseLabelEl.textContent = "Round " + round + " Results";
     playAreaEl.style.display = "none";
     votingEl.style.display = "none";
@@ -307,9 +389,8 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-// Handle if already on game page
 socket.on("gameStarted", () => {
-    // Already here, wait for roundStart
+    // Already on game page, just wait for roundStart
 });
 
 socket.on("errorMsg", (data) => {
