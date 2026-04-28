@@ -41,7 +41,7 @@ socket.on("lobbyUpdate", (lobby) => {
             li.appendChild(badge);
         }
         if (pid === playerId) {
-            li.style.borderLeft = "3px solid #e94560";
+            li.style.borderLeft = "3px solid #d19e18";
         }
         playersList.appendChild(li);
     });
