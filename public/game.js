@@ -48,15 +48,25 @@ socket.on("connect", () => {
         }
         console.log("[game] joined lobby, myId:", myId);
 
-        // After a short delay, if we haven't received roundStart yet, request game state
-        setTimeout(() => {
-            if (!gameStateReceived) {
-                console.log("[game] no roundStart received yet, requesting game state...");
-                socket.emit("requestGameState", { lobbyId }, handleGameState);
-            }
-        }, 2000);
+        // Start polling for game state until we receive it
+        startGameStatePolling();
     });
 });
+
+let _pollInterval = null;
+function startGameStatePolling() {
+    if (_pollInterval) return;
+    // First attempt after 1 second, then every 2 seconds
+    _pollInterval = setInterval(() => {
+        if (gameStateReceived) {
+            clearInterval(_pollInterval);
+            _pollInterval = null;
+            return;
+        }
+        console.log("[game] polling requestGameState...");
+        socket.emit("requestGameState", { lobbyId }, handleGameState);
+    }, 1500);
+}
 
 // ─── Handle game state from requestGameState ───
 function handleGameState(state) {
@@ -64,7 +74,13 @@ function handleGameState(state) {
     if (!state || state.error) return;
 
     if (state.phase === "waiting") {
+        // Game hasn't started round yet, keep polling
         phaseLabelEl.textContent = "Starting soon...";
+        return;
+    }
+    if (state.phase === null) {
+        // No game yet
+        phaseLabelEl.textContent = "Waiting for game...";
         return;
     }
     if (state.phase === "playing" && !gameStateReceived) {

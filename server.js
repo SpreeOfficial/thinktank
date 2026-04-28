@@ -143,6 +143,15 @@ function dealCards(existingHand, deckRef) {
     return hand;
 }
 
+// ─── Sanitize player data for client (strip internal properties like Timeout objects) ───
+function sanitizePlayers(players) {
+    const clean = {};
+    for (const [pid, p] of Object.entries(players)) {
+        clean[pid] = { nickname: p.nickname };
+    }
+    return clean;
+}
+
 // ─── Broadcast player status (sidebar scoreboard + ready state) ───
 function broadcastPlayerStatus(lobbyId) {
     const lobby = lobbies[lobbyId];
@@ -365,7 +374,7 @@ io.on("connection", (socket) => {
         callback({ lobbyId, playerId });
         io.to(lobbyId).emit("lobbyUpdate", {
             hostId: lobbies[lobbyId].hostId,
-            players: lobbies[lobbyId].players,
+            players: sanitizePlayers(lobbies[lobbyId].players),
         });
     });
 
@@ -441,7 +450,7 @@ io.on("connection", (socket) => {
 
         io.to(lobbyId).emit("lobbyUpdate", {
             hostId: lobby.hostId,
-            players: lobby.players,
+            players: sanitizePlayers(lobby.players),
         });
     });
 
@@ -595,7 +604,7 @@ io.on("connection", (socket) => {
                 delete l.players[pid];
                 io.to(lobbyId).emit("lobbyUpdate", {
                     hostId: l.hostId,
-                    players: l.players,
+                    players: sanitizePlayers(l.players),
                 });
                 if (Object.keys(l.players).length === 0) {
                     if (l.game) {
