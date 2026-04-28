@@ -396,3 +396,111 @@ strong.unfilled {
         min-width: 120px;
     }
 }
+
+/* ════════════════════════════════════════
+   LEAVE / KICK / MODAL
+   ════════════════════════════════════════ */
+.sidebar-leave {
+    margin-top: 16px;
+    text-align: center;
+}
+.btn-leave {
+    background: transparent;
+    border: 2px solid #e94560;
+    color: #e94560;
+    font-size: 0.8rem;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+.btn-leave:hover {
+    background: #e94560;
+    color: #fff;
+    transform: none;
+}
+.sidebar-player-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.btn-kick {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    transition: background 0.2s, transform 0.1s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.btn-kick:hover {
+    background: #ff2a4a;
+    transform: scale(1.15);
+}
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 17, 24, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+.modal-box {
+    background: #0a1118;
+    border-radius: 16px;
+    padding: 35px 40px;
+    max-width: 440px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+    border: 2px solid #0f3460;
+}
+.modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.btn-danger {
+    padding: 12px 24px;
+    border: 2px solid #e94560;
+    border-radius: 8px;
+    background: transparent;
+    color: #e94560;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-danger:hover {
+    background: #e94560;
+    color: #fff;
+    transform: none;
+}
+.btn-stay {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    background: #27ae60;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-stay:hover {
+    background: #2ecc71;
+    transform: none;
+}

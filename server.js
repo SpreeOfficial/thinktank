@@ -163,7 +163,7 @@ function broadcastPlayerStatus(lobbyId) {
         score: game ? (game.scores[pid] || 0) : 0,
         ready: game ? !!game.submissions[pid] : false,
     }));
-    io.to(lobbyId).emit("playerStatus", { players });
+    io.to(lobbyId).emit("playerStatus", { players, hostId: lobby.hostId });
 }
 
 // ─── START ROUND ───
@@ -584,6 +584,90 @@ io.on("connection", (socket) => {
         game.votes[pid] = votedForId;
         socket.emit("voteAck", { ok: true });
         checkAllVoted(lobbyId);
+    });
+
+    // ─── REMOVE PLAYER helper (used by leave and kick) ───
+    function removePlayerFromLobby(lobbyId, pid) {
+        const lobby = lobbies[lobbyId];
+        if (!lobby || !lobby.players[pid]) return;
+
+        // Clear any disconnect timer
+        if (lobby.players[pid]._disconnectTimer) {
+            clearTimeout(lobby.players[pid]._disconnectTimer);
+        }
+
+        // Remove from players
+        delete lobby.players[pid];
+
+        // Clean up game state for this player
+        if (lobby.game) {
+            delete lobby.game.hands[pid];
+            delete lobby.game.submissions[pid];
+            delete lobby.game.votes[pid];
+            delete lobby.game.scores[pid];
+        }
+
+        // Broadcast updates
+        io.to(lobbyId).emit("lobbyUpdate", {
+            hostId: lobby.hostId,
+            players: sanitizePlayers(lobby.players),
+        });
+        broadcastPlayerStatus(lobbyId);
+
+        // If no players left, clean up lobby
+        if (Object.keys(lobby.players).length === 0) {
+            if (lobby.game) {
+                clearTimeout(lobby.game.timer);
+                clearInterval(lobby.game.tickInterval);
+            }
+            delete lobbies[lobbyId];
+            console.log("Lobby deleted (empty):", lobbyId);
+            return;
+        }
+
+        // If game is in progress, check if all remaining players have submitted/voted
+        if (lobby.game) {
+            if (lobby.game.phase === "playing") {
+                checkAllSubmitted(lobbyId);
+            } else if (lobby.game.phase === "voting") {
+                checkAllVoted(lobbyId);
+            }
+        }
+    }
+
+    // LEAVE GAME (player voluntarily leaves)
+    socket.on("leaveGame", ({ lobbyId }) => {
+        const pid = socket.data.playerId;
+        if (!pid || !lobbyId) return;
+        console.log("Player leaving:", pid, "from", lobbyId);
+        removePlayerFromLobby(lobbyId, pid);
+        socket.leave(lobbyId);
+        socket.data.lobbyId = null;
+        socket.data.playerId = null;
+    });
+
+    // KICK PLAYER (host only)
+    socket.on("kickPlayer", ({ lobbyId, playerId: targetPid }) => {
+        const lobby = lobbies[lobbyId];
+        if (!lobby) return;
+        // Only the host can kick
+        if (lobby.hostId !== socket.data.playerId) return;
+        // Can't kick yourself
+        if (targetPid === socket.data.playerId) return;
+
+        const targetPlayer = lobby.players[targetPid];
+        if (!targetPlayer) return;
+
+        console.log("Host kicking player:", targetPid, "from", lobbyId);
+
+        // Send kicked event to the target player's socket
+        const targetSid = targetPlayer.socketId;
+        if (targetSid) {
+            io.to(targetSid).emit("kicked");
+        }
+
+        // Remove them
+        removePlayerFromLobby(lobbyId, targetPid);
     });
 
     socket.on("disconnect", () => {

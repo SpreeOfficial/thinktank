@@ -9,6 +9,7 @@ let currentHand = [];
 let hasSubmitted = false;
 let hasVoted = false;
 let gameStateReceived = false;
+let hostId = null;
 
 // DOM refs
 const timerEl = document.getElementById("timer");
@@ -115,13 +116,15 @@ function handleGameState(state) {
 }
 
 // ─── SIDEBAR: Player list & scores from playerStatus ───
-socket.on("playerStatus", ({ players }) => {
+socket.on("playerStatus", ({ players, hostId: hid }) => {
+    if (hid) hostId = hid;
     renderSidebar(players);
 });
 
 // ─── SIDEBAR: Also populate from lobbyUpdate (initial load) ───
 socket.on("lobbyUpdate", (lobby) => {
     if (!lobby || !lobby.players) return;
+    if (lobby.hostId) hostId = lobby.hostId;
     const players = Object.entries(lobby.players).map(([pid, p]) => ({
         id: pid,
         nickname: p.nickname,
@@ -135,6 +138,7 @@ function renderSidebar(players) {
     if (!sidebarPlayersEl) return;
     sidebarPlayersEl.innerHTML = "";
     const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const isHost = myId === hostId;
     sorted.forEach((p, i) => {
         const li = document.createElement("li");
         li.className = "sidebar-player";
@@ -143,14 +147,36 @@ function renderSidebar(players) {
         const medal = i === 0 && p.score > 0 ? "🥇 " : i === 1 && p.score > 0 ? "🥈 " : i === 2 && p.score > 0 ? "🥉 " : "";
         const readyIcon = p.ready ? '<span class="ready-icon">✅</span>' : "";
 
+        // Kick button for host (not on themselves)
+        let kickBtn = "";
+        if (isHost && p.id !== myId) {
+            kickBtn = '<button class="btn-kick" data-pid="' + p.id + '" title="Kick player">✕</button>';
+        }
+
         li.innerHTML =
             '<div class="sidebar-player-info">' +
                 '<span class="sidebar-nick">' + medal + escapeHtml(p.nickname) + '</span>' +
                 readyIcon +
             '</div>' +
-            '<span class="sidebar-score">' + (p.score || 0) + ' pts</span>';
+            '<div class="sidebar-player-right">' +
+                '<span class="sidebar-score">' + (p.score || 0) + ' pts</span>' +
+                kickBtn +
+            '</div>';
         sidebarPlayersEl.appendChild(li);
     });
+
+    // Attach kick button event listeners
+    if (isHost) {
+        sidebarPlayersEl.querySelectorAll(".btn-kick").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const pid = btn.getAttribute("data-pid");
+                if (confirm("Kick this player from the game?")) {
+                    socket.emit("kickPlayer", { lobbyId, playerId: pid });
+                }
+            });
+        });
+    }
 }
 
 // ─── TIMER ───
@@ -416,3 +442,24 @@ socket.on("errorMsg", (data) => {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 });
+
+// ─── LEAVE GAME ───
+function showLeaveModal() {
+    document.getElementById("leaveModal").style.display = "flex";
+}
+function cancelLeave() {
+    document.getElementById("leaveModal").style.display = "none";
+}
+function confirmLeave() {
+    socket.emit("leaveGame", { lobbyId });
+    localStorage.removeItem("playerId");
+    window.location.href = "/";
+}
+
+// ─── KICKED BY HOST ───
+socket.on("kicked", () => {
+    localStorage.removeItem("playerId");
+    alert("You have been kicked from the game by the host.");
+    window.location.href = "/";
+});
+

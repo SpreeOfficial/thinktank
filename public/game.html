@@ -7,11 +7,26 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Leave confirmation modal -->
+<div id="leaveModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+        <h2 style="color:#d19e18; margin-bottom:12px;">😢 Sad to see you go!</h2>
+        <p style="color:#aaa; margin-bottom:20px;">Are you sure you wanna miss the fun?</p>
+        <div class="modal-buttons">
+            <button class="btn-danger" onclick="confirmLeave()">Yes, Let me out!</button>
+            <button class="btn-stay" onclick="cancelLeave()">No, I'm stayin for the fun!</button>
+        </div>
+    </div>
+</div>
+
 <div class="game-wrapper">
     <!-- LEFT SIDEBAR: Players / Scoreboard -->
     <aside class="game-sidebar" id="sidebar">
         <h3 class="sidebar-title">Players</h3>
         <ul class="sidebar-players" id="sidebarPlayers"></ul>
+        <div class="sidebar-leave">
+            <button class="btn-leave" onclick="showLeaveModal()">I'm leaving, bye! 👋</button>
+        </div>
     </aside>
 
     <!-- MAIN GAME AREA -->
